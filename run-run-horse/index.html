@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>跳跳马</title>
+  <link rel="stylesheet" href="../common/style.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="game-container">
+    <!-- 顶部导航栏 -->
+    <header class="nav-header">
+      <a href="../index.html" class="nav-back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </a>
+      <h1 class="nav-title">跳跳马</h1>
+      <div class="nav-info" id="infoBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </div>
+    </header>
+
+    <div class="page-area">
+      <!-- 棋盘区域 -->
+      <div class="board-area">
+      <div class="coord-row top">
+        <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+      </div>
+      <div class="board-middle">
+        <div class="coord-col left">
+          <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+        </div>
+        <div class="board-wrap">
+          <div id="board" class="board"></div>
+        </div>
+        <div class="coord-col right">
+          <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+        </div>
+      </div>
+      <div class="coord-row bottom">
+        <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+      </div>
+    </div>
+
+      <div class="right-panel">
+        <!-- 信息区 -->
+        <div class="score-area">
+          <!-- 信息行 -->
+          <div class="info-row">
+            <span class="score" id="score">0分</span>
+            <span class="timer" id="timer">1:00</span>
+          </div>
+        </div>
+
+        <!-- 按钮区 -->
+        <div class="button-area">
+          <!-- 按钮行 -->
+          <footer class="toolbar">
+            <button id="statsBtn" class="toolbar-btn md-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M10,20h4L14,4h-4v16zM4,20h4v-8L4,12v8zM16,9v11h4L20,9h-4z"/></svg>
+            </button>
+            <button id="restartBtn" class="toolbar-btn md-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            </button>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 规则对话框 -->
+  <div class="modal-overlay" id="infoModal">
+    <div class="modal-content">
+      <p class="modal-text" id="modalText"></p>
+      <div class="modal-actions">
+        <button class="md-btn" id="modalCloseBtn">知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 游戏结束对话框 -->
+  <div class="modal-overlay" id="gameOverModal">
+    <div class="modal-content gameover-content">
+      <button class="gameover-close" id="gameOverCloseBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      <div class="gameover-score" id="gameOverScore">0</div>
+      <div class="gameover-record">个人最高纪录 <span id="highScore">0</span> 分</div>
+      <div class="gameover-actions">
+        <button class="gameover-btn md-btn" id="shareBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+        </button>
+        <button class="gameover-btn md-btn" id="gameOverRestartBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../common/game-shell.js?t=202606061030"></script>
+  <script src="game.js?t=202606061030"></script>
+</body>
+</html>

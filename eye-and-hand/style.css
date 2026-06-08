@@ -1,0 +1,37 @@
+/* ===== 眼疾手快特有样式 ===== */
+/* 公共样式已从 ../common/style.css 引入 */
+
+/* 坐标标签显示在格子内 */
+.square .coord-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary);
+  pointer-events: none;
+  z-index: 1;
+  text-align: center;
+  line-height: 1;
+}
+
+/* 被占用的格子 */
+.square.occupied {
+  cursor: pointer;
+}
+
+/* 消除动画 */
+.coord-label.popping {
+  animation: pop-out 0.3s ease forwards;
+}
+@keyframes pop-out {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+}
+
+/* 误点闪烁 */
+.square.wrong {
+  background-color: var(--color-error) !important;
+  transition: background-color 0.15s ease;
+}

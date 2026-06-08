@@ -1,0 +1,610 @@
+/* ===================== 公共样式 ===================== */
+
+/* ===== CSS 自定义属性 ===== */
+:root {
+  --color-primary: #5B7BC0;
+  --color-primary-rgb: 91, 123, 192;
+  --color-accent: #F5B800;
+  --color-accent-rgb: 245, 184, 0;
+  --color-danger: #e74c3c;
+  --color-success: #009944;
+  --color-error: #ff6b6b;
+  --color-text: #333;
+  --color-text-secondary: #999;
+  --color-bg: #F5F5F5;
+  --color-surface: #FFFFFF;
+}
+
+/* ===== 全局 ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ===== 游戏容器 ===== */
+.game-container {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+/* 窗口宽度>480px且高度>600px时，内容区限制为480px并居中 */
+@media (min-width: 480px) and (min-height: 600px) {
+  .game-container {
+    width: 480px;
+    margin: 0 auto;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  }
+}
+
+/* ===== 顶部导航栏（高度固定 48px） ===== */
+.nav-header {
+  width: 100%;
+  height: 48px;
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+.nav-back, .nav-info {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+.nav-back:hover, .nav-info:hover {
+  background: rgba(255,255,255,0.12);
+}
+.nav-back:active, .nav-info:active {
+  background: rgba(255,255,255,0.24);
+}
+.nav-back::after, .nav-info::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255,255,255,0.24);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.nav-back:active::after, .nav-info:active::after {
+  width: 200%;
+  height: 200%;
+  opacity: 1;
+}
+.nav-title {
+  font-size: 17px;
+  font-weight: 500;
+  color: #fff;
+  text-align: center;
+}
+
+/* ===== 页面区（导航栏下方至底部） ===== */
+.page-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  min-width: 0;
+  gap: 0;
+}
+
+/* ===== 右侧面板（竖屏时display:contents展开子元素） ===== */
+.right-panel {
+  display: contents;
+}
+
+/* ===== 分数/信息区 ===== */
+.score-area {
+  width: 100%;
+  text-align: center;
+  flex: 1;
+  min-height: 48px;
+  min-width: 108px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  order: 1;
+}
+
+/* ===== 信息行 ===== */
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.score {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-accent);
+  flex: 1;
+  text-align: center;
+}
+
+.timer {
+  flex: 1;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* 计时器状态色 */
+.timer.timer-red {
+  color: var(--color-danger);
+}
+.timer.timer-gray {
+  color: var(--color-text-secondary);
+}
+
+/* ===== 棋盘区域（外边框）——CSS Grid 统一坐标与棋盘对齐 ===== */
+.board-area {
+  display: grid;
+  grid-template-columns: 24px 1fr 24px;
+  grid-template-rows: auto 1fr auto;
+  padding: 3px;
+  border: 0.5px solid var(--color-primary);
+  aspect-ratio: 1 / 1;
+  /* JS 会动态设置 width */
+  width: 100%;
+  flex-shrink: 0;
+  order: 2;
+  margin: auto 0;
+}
+
+/* 坐标行（顶部和底部）——跨越中间列 */
+.coord-row {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+}
+.coord-row.top {
+  grid-row: 1;
+  padding: 3px 0;
+}
+.coord-row.bottom {
+  grid-row: 3;
+  padding: 3px 0;
+}
+.coord-row span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+/* 中间区域：左坐标 + 棋盘 + 右坐标 */
+.board-middle {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: contents;
+}
+
+/* 坐标列（左侧和右侧）——grid与棋盘8行精确对齐 */
+.coord-col {
+  grid-row: 2;
+  display: grid;
+  grid-template-rows: repeat(8, 1fr);
+}
+.coord-col.left {
+  grid-column: 1;
+  padding-right: 3px;
+}
+.coord-col.right {
+  grid-column: 3;
+  padding-left: 3px;
+}
+.coord-col span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+/* ===== 按钮区 ===== */
+.button-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  order: 3;
+  min-height: 48px;
+  flex: 1;
+}
+
+/* ===== 按钮行 ===== */
+.toolbar {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 48px;
+  min-width: 108px;
+}
+
+/* ===== 棋盘包裹层 ===== */
+.board-wrap {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ===== 棋盘（内边框） ===== */
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+  touch-action: none;
+  border: 1px solid var(--color-primary);
+}
+
+/* ===== 格子 ===== */
+.square {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: default;
+}
+.square.light { background: var(--color-surface); }
+.square.dark  { background: var(--color-primary); }
+
+/* 选中高亮 */
+.square.selected {
+  box-shadow: inset 0 0 0 3px rgba(var(--color-accent-rgb),.7);
+}
+
+/* ===== 棋子 ===== */
+.piece {
+  width: 80%;
+  height: 80%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: none;
+}
+.piece img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ===== 拖拽中的棋子 ===== */
+.piece.dragging {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  opacity: .95;
+  width: var(--piece-size, 52px);
+  height: var(--piece-size, 52px);
+}
+.piece.ghost {
+  opacity: 0.25;
+}
+.piece.captured-ghost {
+  position: absolute;
+  z-index: 1;
+  width: 80%;
+  height: 80%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ===== 摇晃动画 ===== */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px) rotate(-3deg); }
+  30% { transform: translateX(5px) rotate(2deg); }
+  45% { transform: translateX(-4px) rotate(-2deg); }
+  60% { transform: translateX(3px) rotate(1deg); }
+  75% { transform: translateX(-2px) rotate(-1deg); }
+}
+
+/* ===== Material Design 底部工具栏按钮 ===== */
+.toolbar-btn {
+  width: 50%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #757575 !important;
+  cursor: pointer;
+}
+.toolbar-btn svg,
+.toolbar-btn img {
+  width: 20px;
+  height: 20px;
+}
+
+/* ===== Material Design 波纹效果 ===== */
+.md-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.md-ripple::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255,255,255,0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease, opacity 0.4s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.md-ripple:active::after {
+  width: 200%;
+  height: 200%;
+  opacity: 1;
+}
+
+/* ===== Material Design 按钮 ===== */
+.md-btn {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  color: var(--color-primary);
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.md-btn:hover {
+  background: rgba(var(--color-primary-rgb),0.08);
+}
+.md-btn:active {
+  background: rgba(var(--color-primary-rgb),0.16);
+}
+.md-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(var(--color-primary-rgb),0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.md-btn:active::after {
+  width: 200%;
+  height: 200%;
+  opacity: 1;
+}
+
+/* ===== Material Design 对话框 ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-overlay.show {
+  display: flex;
+}
+.modal-content {
+  background: var(--color-surface);
+  border-radius: 4px;
+  padding: 24px 24px 16px;
+  width: 80%;
+  max-width: 320px;
+  text-align: left;
+  box-shadow: 0 11px 15px -7px rgba(0,0,0,0.2), 0 24px 38px 3px rgba(0,0,0,0.14), 0 9px 46px 8px rgba(0,0,0,0.12);
+}
+.modal-text {
+  font-size: 16px;
+  color: rgba(0,0,0,0.87);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ===== 游戏结束对话框 ===== */
+.gameover-content {
+  position: relative;
+  text-align: center;
+  padding: 32px 24px 24px;
+}
+.gameover-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #757575;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+.gameover-close:hover {
+  background: rgba(117,117,117,0.08);
+}
+.gameover-close:active {
+  background: rgba(117,117,117,0.16);
+}
+.gameover-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(117,117,117,0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.gameover-close:active::after {
+  width: 200%;
+  height: 200%;
+  opacity: 1;
+}
+.gameover-close img {
+  width: 20px;
+  height: 20px;
+}
+.gameover-score {
+  font-size: 72px;
+  font-weight: 300;
+  color: var(--color-accent);
+  line-height: 1;
+  margin: 16px 0 12px;
+}
+.gameover-record {
+  font-size: 14px;
+  color: rgba(0,0,0,0.6);
+  margin-bottom: 24px;
+}
+.gameover-actions {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+}
+.gameover-btn {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #757575;
+  border-radius: 50%;
+}
+.gameover-btn img {
+  width: 20px;
+  height: 20px;
+}
+
+/* ===================================================== */
+/* ===== 响应式布局：横屏模式（页面区宽度 > 高度） ===== */
+/* 由 JS 动态添加 .landscape 类触发，替代 @media 查询 */
+/* ===================================================== */
+.game-container.landscape {
+  /* page-area 横向排列 */
+}
+.game-container.landscape .page-area {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* right-panel 不再 display:contents，变成真实容器 */
+.game-container.landscape .right-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 108px;
+  height: 100%;
+  order: 0;
+}
+
+/* 棋盘：JS 动态设置宽度，高度撑满，排在左侧 */
+.game-container.landscape .board-area {
+  width: auto;
+  height: 100%;
+  flex-shrink: 0;
+  order: -1;
+}
+
+/* 信息区和按钮区各占一半 */
+.game-container.landscape .score-area {
+  flex: 1;
+  width: auto;
+  padding: 0;
+}
+
+/* 按钮区：真实容器，占右下面板一半，按钮行下对齐 */
+.game-container.landscape .button-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex: 1;
+  min-width: 108px;
+}
+
+.game-container.landscape .toolbar {
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+}

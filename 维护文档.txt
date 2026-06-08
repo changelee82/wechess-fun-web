@@ -1,0 +1,511 @@
+================================================================================
+                    国象联盟趣味训练网站 — 代码维护摘要
+================================================================================
+生成日期：2026-06-07
+用途：帮助开发者快速理解项目结构，方便日后维护
+
+
+================================================================================
+一、项目概述
+================================================================================
+
+本项目是一个基于纯前端技术（HTML/CSS/JS）的国际象棋趣味小游戏合集网站，
+面向移动端优化，包含4个子游戏：
+
+  1. 皇后捉小兵 (queen-catches-pawns)
+  2. 眼疾手快   (eye-and-hand)
+  3. 跳跳马     (run-run-horse)
+  4. 翻翻乐     (keep-look)
+
+技术栈：原生 JavaScript（无框架）、CSS3、SVG 棋子素材
+架构模式：公共外壳 + 独立游戏模块
+
+
+================================================================================
+二、目录结构
+================================================================================
+
+workspace/
+├── index.html              # 首页：游戏入口卡片列表
+├── style.css               # 首页样式
+│
+├── common/                 # 公共模块（所有游戏共用）
+│   ├── game-shell.js       # 游戏外壳：初始化、UI、音效、棋盘工具、计时器
+│   ├── style.css           # 公共样式：布局、棋盘、棋子、对话框、响应式
+│   ├── sounds/             # 音效文件（mp3）
+│   │   ├── capture.mp3     # 吃子音效
+│   │   ├── check.mp3       # 将军/特殊音效
+│   │   ├── illegal.mp3     # 非法操作音效
+│   │   ├── move_self.mp3   # 移动音效
+│   │   └── timeout.mp3     # 超时音效
+│   └── Chessman/           # 棋子SVG素材（16套皮肤 × 12个棋子）
+│       ├── blind/          # 盲棋背面（1.svg白, 7.svg黑）
+│       ├── cond/           # 皮肤：condensed
+│       ├── crystals/       # 皮肤：crystals
+│       ├── fritz/          # 皮肤：fritz（默认）
+│       ├── harl/           # 皮肤：harlequin
+│       ├── king/           # 皮肤：king
+│       ├── leip/           # 皮肤：leipzig
+│       ├── line/           # 皮肤：line
+│       ├── luce/           # 皮肤：lucena
+│       ├── magn/           # 皮肤：magnus
+│       ├── maya/           # 皮肤：maya
+│       ├── medieval/       # 皮肤：medieval
+│       ├── mill/           # 皮肤：millennium
+│       ├── moti/           # 皮肤：moti
+│       ├── old/            # 皮肤：old
+│       ├── uscf/           # 皮肤：uscf
+│       └── utrecht/        # 皮肤：utrecht
+│
+├── images/                 # 首页游戏卡片封面图（webp格式）
+│   ├── eye-and-hand.webp
+│   ├── flip-flip.webp
+│   ├── queen-catches-pawns.webp
+│   └── run-run-horse.webp
+│
+├── queen-catches-pawns/    # 游戏1：皇后捉小兵
+│   ├── index.html          # 游戏页面（结构同其他游戏）
+│   ├── game.js             # 游戏逻辑
+│   └── style.css           # 游戏特有样式（当前为空，依赖公共样式）
+│
+├── eye-and-hand/           # 游戏2：眼疾手快
+│   ├── index.html
+│   ├── game.js
+│   └── style.css           # 坐标标签、占用状态、消除动画、误点闪烁
+│
+├── run-run-horse/          # 游戏3：跳跳马
+│   ├── index.html
+│   ├── game.js
+│   └── style.css           # 当前为空
+│
+└── keep-look/              # 游戏4：翻翻乐
+    ├── index.html
+    ├── game.js
+    └── style.css           # 棋子翻面样式（face-down/face-up）、摇晃动画
+
+
+================================================================================
+三、公共模块详解（common/）
+================================================================================
+
+----------------------------------------
+3.1 game-shell.js — 游戏外壳核心
+----------------------------------------
+
+职责：
+  - 提供统一的游戏初始化框架
+  - 管理分数、最高分（localStorage）
+  - 提供公共UI：规则对话框、游戏结束对话框
+  - 响应式布局计算（横屏/竖屏切换）
+  - 公共工具：棋盘坐标系统、音效、渲染、计时器
+
+关键API（GameShell对象暴露的方法）：
+
+  init(config)              # 初始化游戏外壳
+    config字段：
+      - title: 游戏标题
+      - storageKey: localStorage最高分键名
+      - rulesText: 规则说明文字
+      - onInit: 游戏初始化回调
+      - onRestart: 重新开始回调
+      - onShare: 分享回调
+
+  updateScore(val)          # 更新分数显示
+  gameOver(score)           # 触发游戏结束，自动记录最高分
+  closeGameOver()           # 关闭游戏结束对话框
+  destroy()                 # 清理事件监听
+
+  棋盘工具：
+    FILES / RANKS / BOARD_SIZE    # 文件数组、等级数组、棋盘大小
+    key(f, r)                     # 生成坐标键，如 key('a',1) → "a1"
+    parseKey(k)                   # 解析坐标键 → {f, r}
+    fi(f) / ri(r)                 # 文件/等级转索引
+    inBoard(f, r)                 # 判断坐标是否在棋盘内
+
+  音效：
+    playSound(name, audioEnabled) # 播放音效，name对应sounds/下的文件名
+
+  渲染：
+    pieceSvgUrl(p, skin)          # 获取棋子SVG路径
+    createPieceElement(pc, key, skin)  # 创建棋子DOM元素
+    renderBoard(boardEl, board, options)  # 渲染整个棋盘
+
+  计时器：
+    createTimer(options)          # 创建计时器实例
+      options: onTick, onTimeout, initialTime
+      返回：{ start, stop, addTime, getTime, reset }
+    formatTimer(t)                # 格式化时间显示
+
+  DOM工具：
+    $(sel, el) / $$(sel, el)      # querySelector / querySelectorAll 快捷方式
+
+皮肤系统：
+  PIECE_SKINS 数组定义了16套皮肤名称，对应 Chessman/ 下的子目录。
+  默认皮肤是 'fritz'。
+  盲棋/翻翻乐使用 'blind' 皮肤作为背面。
+
+----------------------------------------
+3.2 common/style.css — 公共样式
+----------------------------------------
+
+CSS变量（:root定义）：
+  --color-primary: #5B7BC0       # 主题蓝
+  --color-accent: #F5B800        # 强调黄（分数、高亮）
+  --color-danger: #e74c3c        # 危险红（计时器警告）
+  --color-success: #009944       # 成功绿
+  --color-error: #ff6b6b         # 错误红
+  --color-text: #333             # 主文字色
+  --color-text-secondary: #999   # 次要文字色
+  --color-bg: #F5F5F5            # 背景色
+  --color-surface: #FFFFFF       # 表面色（卡片、对话框）
+
+布局体系：
+  .game-container        # 游戏总容器，flex纵向，100vw×100vh
+  .nav-header            # 顶部导航栏，高度48px
+  .page-area             # 内容区，flex:1
+  .board-area            # 棋盘外框，aspect-ratio: 1/1
+  .right-panel           # 右侧面板（竖屏时display:contents）
+  .score-area            # 分数/信息区
+  .button-area           # 按钮区
+  .toolbar               # 底部工具栏，高度48px
+
+棋盘结构：
+  .coord-row.top/bottom  # 顶部/底部坐标行（a-h）
+  .coord-col.left/right  # 左侧/右侧坐标列（1-8）
+  .board-middle          # 中间区域：左坐标+棋盘+右坐标
+  .board-wrap            # 棋盘包裹层
+  .board                 # 实际棋盘，8×8 grid
+  .square.light/dark     # 格子，白格/黑格
+  .square.selected       # 选中高亮（金色内阴影）
+  .piece                 # 棋子，80%宽高
+  .piece.dragging        # 拖拽中棋子
+  .piece.ghost           # 幽灵棋子（半透明）
+  .piece.captured-ghost  # 被吃棋子的幽灵
+
+对话框：
+  .modal-overlay         # 对话框遮罩层
+  .modal-content         # 对话框内容
+  .gameover-content      # 游戏结束对话框专用样式
+
+响应式：
+  - 窗口宽度>480px且高度>600px时，内容限制为480px并居中
+  - 横竖屏由JS动态添加 .landscape / .portrait 类控制
+    （替代CSS @media查询，因为需要同时调整棋盘尺寸）
+
+Material Design元素：
+  .md-ripple             # 波纹效果
+  .md-btn                # Material按钮样式
+
+
+================================================================================
+四、各游戏模块详解
+================================================================================
+
+----------------------------------------
+4.1 皇后捉小兵 (queen-catches-pawns/)
+----------------------------------------
+
+游戏规则：
+  玩家控制白后，点击棋盘移动皇后吃掉黑兵。每吃一个兵得1分。
+  黑兵每回合自动向前一步，到底线升变或反吃皇后则游戏结束。
+
+核心机制：
+  - 白后初始位置：d1
+  - 黑兵初始位置：e8
+  - 黑兵移动：每回合所有黑兵向前一步（rank减1）
+  - 黑兵生成：每回合在8线随机空位生成新黑兵
+    - 75%概率避免生成在能保护7线兵的位置
+    - 25%概率接受保护位置
+  - 黑兵吃皇后：斜前方（国际象棋兵的吃子规则）
+  - 黑兵升变：到达1线自动升变为后，游戏结束
+
+游戏流程：
+  白方回合 → 玩家点击合法位置移动皇后 → 吃子/移动 → 黑方回合 →
+  黑兵前进 → 检查吃后/升变 → 生成新黑兵 → 回到白方回合
+
+动画系统：
+  - 皇后移动：DOM元素从原位置动画滑到目标位置（translate动画）
+  - 被吃棋子：创建captured-ghost元素显示被吃棋子
+  - 非法移动：皇后摇晃动画（shake）
+
+关键常量：
+  ANIMATION_DURATION = 300ms    # 动画时长
+  BLACK_TURN_DELAY = 500ms      # 黑方回合延迟
+  PROTECTION_AVOID_CHANCE = 0.75
+  PROTECTION_ACCEPT_CHANCE = 0.25
+
+----------------------------------------
+4.2 眼疾手快 (eye-and-hand/)
+----------------------------------------
+
+游戏规则：
+  白格上随机显示坐标标签（如"b4"），玩家需点击对应坐标的格子来消除。
+  误点黑格、误点无标签的坐标、或白格被占满则游戏结束。
+  特殊规则：消除的坐标与点击位置在同一直线（横/竖/斜）时，引爆整条线。
+
+核心机制：
+  - 只在白格上生成坐标标签
+  - 坐标标签是另一个白格的坐标（可能显示自己坐标）
+  - 动态生成间隔：随已出现坐标数量增加而加快
+    公式：1.6 * (1 - 2 * atan(bron / 100) / π) 秒
+  - 最小间隔：100ms
+
+计分规则：
+  - 消除的匹配格子 + 引爆范围内有标签的格子 = 总分
+  - 匹配消除 → capture音效
+  - 引爆消除 → check音效
+
+特殊效果：
+  - 消除时格子闪绿（rgba(0,153,68,0.6)）
+  - 标签弹出动画（pop-out）
+  - 误点闪烁红色（.square.wrong）
+
+页面可见性：
+  - 切出页面时暂停生成
+  - 切回页面时恢复生成
+
+----------------------------------------
+4.3 跳跳马 (run-run-horse/)
+----------------------------------------
+
+游戏规则：
+  控制白马（骑士）在棋盘上跳吃黑兵。每吃一个兵得1分，奖励2秒时间。
+  倒计时60秒，时间到或无法继续吃兵则游戏结束。
+
+核心机制：
+  - 白马初始位置：e4
+  - 黑兵初始位置：c5
+  - 马的移动：国际象棋骑士的L形移动
+  - 计时系统：公共计时器，初始60秒
+  - 回合制：吃完本轮所有黑兵后进入下一回合
+  - 每回合生成的新黑兵数量 = 当前回合数
+
+新黑兵生成规则：
+  - 基于当前马的位置，随机选择马的合法移动位置
+  - 每个新兵位置在前一个位置的马步范围内
+  - 确保新兵位置不重复
+
+游戏结束条件：
+  1. 时间耗尽
+  2. 吃完本轮所有兵后，新回合一步都吃不到
+  3. 当前回合还有剩余兵，但马无法吃到任何兵
+
+动画：
+  - 马移动：translate滑入动画
+  - 吃子时保留被吃兵的ghost元素
+  - 非法移动：摇晃动画
+
+----------------------------------------
+4.4 翻翻乐 (keep-look/)
+----------------------------------------
+
+游戏规则：
+  记忆翻牌游戏。棋盘上有成对的隐藏棋子，翻开两个相同棋子即可消除得分。
+  倒计时60秒，配对成功加2秒。时间到则游戏结束。
+
+核心机制：
+  - 棋子编码：skinIndex * 13 + pieceType（1-12）
+  - 棋子类型1-6为白方，7-12为黑方
+  - 轮次系统（count）：
+    - 第1轮：1对棋子
+    - 第2轮：2对棋子
+    - ...每轮增加1对
+  - 难度递增：
+    - count ≤ 32：使用盲棋背面（blind皮肤）
+    - 32 < count ≤ 64：交替显示黑白兵
+    - count > 64：随机显示黑白兵
+    - 皮肤种类随轮次增加而增加
+
+游戏流程：
+  1. 点击未翻开棋子 → 显示正面
+  2. 再点击另一个 → 比较是否相同
+     - 相同：消除，得分+1，加2秒
+     - 不同：翻回背面，短暂禁用棋盘
+  3. 所有棋子消除 → 进入下一轮，生成更多对
+
+翻牌逻辑：
+  - 选中状态：selectedSquare 记录当前选中的格子索引
+  - 未选中格子显示背面（根据轮次决定背面样式）
+  - 选中格子显示正面（实际皮肤和棋子类型）
+
+
+================================================================================
+五、页面结构模板（所有游戏共用）
+================================================================================
+
+每个游戏的 index.html 遵循统一结构：
+
+  <!DOCTYPE html>
+  <html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>游戏名</title>
+    <link rel="stylesheet" href="../common/style.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="game-container">
+      <header class="nav-header">        <!-- 48px高，返回按钮+标题+规则按钮 -->
+        <a href="../index.html" class="nav-back">...</a>
+        <h1 class="nav-title">游戏名</h1>
+        <div class="nav-info" id="infoBtn">...</div>
+      </header>
+
+      <div class="page-area">
+        <div class="board-area">           <!-- 棋盘外框 -->
+          <div class="coord-row top">...</div>
+          <div class="board-middle">
+            <div class="coord-col left">...</div>
+            <div class="board-wrap">
+              <div id="board" class="board"></div>   <!-- 实际棋盘 -->
+            </div>
+            <div class="coord-col right">...</div>
+          </div>
+          <div class="coord-row bottom">...</div>
+        </div>
+
+        <div class="right-panel">
+          <div class="score-area">
+            <div class="info-row">
+              <span class="score" id="score">0分</span>
+              <span class="timer" id="timer">1:00</span>   <!-- 部分游戏有计时器 -->
+            </div>
+          </div>
+          <div class="button-area">
+            <footer class="toolbar">
+              <button id="statsBtn" class="toolbar-btn md-btn">...</button>   <!-- 统计按钮 -->
+              <button id="restartBtn" class="toolbar-btn md-btn">...</button> <!-- 重新开始 -->
+            </footer>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 规则对话框 -->
+    <div class="modal-overlay" id="infoModal">...</div>
+
+    <!-- 游戏结束对话框 -->
+    <div class="modal-overlay" id="gameOverModal">...</div>
+
+    <script src="../common/game-shell.js?t=202606061030"></script>
+    <script src="game.js?t=202606061030"></script>
+  </body>
+  </html>
+
+注意：
+  - 所有游戏页面都引入 ../common/game-shell.js 和 ../common/style.css
+  - 时间戳参数 (?t=202606061030) 用于强制刷新缓存
+  - 返回按钮链接到 ../index.html
+
+
+================================================================================
+六、关键技术要点
+================================================================================
+
+6.1 响应式布局
+  - 不使用CSS @media查询控制横竖屏
+  - 由JS检测页面宽高比，动态添加 .landscape / .portrait 类
+  - JS同时计算并设置棋盘尺寸，确保棋盘始终为正方形
+  - 大屏（>480px且>600px）时内容限制480px宽度居中
+
+6.2 事件绑定策略
+  - 使用事件委托（boardEl.addEventListener）而非给每个格子绑定
+  - 使用标志位（areSquareEventsBound）防止重复绑定
+  - game-shell.js 中也有 isEventsBound 防止公共事件重复绑定
+
+6.3 动画实现
+  - 使用CSS transition + transform: translate 实现滑入动画
+  - 使用 requestAnimationFrame 确保动画流畅
+  - 强制重绘：element.offsetHeight 触发
+  - 动画结束后清理 transition 和 transform 样式
+
+6.4 音效系统
+  - 使用 HTML5 Audio API
+  - 音效缓存（soundCache对象）避免重复创建Audio对象
+  - 播放前重置 currentTime = 0，支持连续快速播放
+  - 使用 .catch(() => {}) 忽略自动播放策略导致的错误
+
+6.5 计时器实现
+  - 自定义计时器（非setInterval）
+  - 最后10秒进入高精度模式（每100ms tick一次，显示一位小数）
+  - 支持 addTime() 动态增加时间
+  - 支持页面可见性变化时的暂停/恢复
+
+6.6 localStorage
+  - 使用 safeGetItem / safeSetItem 包装，带错误处理
+  - 每个游戏有独立的 storageKey
+  - 最高分在游戏结束时自动更新
+
+6.7 棋子渲染
+  - 棋子使用SVG图片，按皮肤/编号组织目录
+  - 编号规则：1=白王, 2=白后, 3=白车, 4=白象, 5=白马, 6=白兵
+              7=黑王, 8=黑后, 9=黑车, 10=黑象, 11=黑马, 12=黑兵
+  - 颜色判断：大写字母=白方，小写字母=黑方
+
+
+================================================================================
+七、维护注意事项
+================================================================================
+
+7.1 添加新游戏
+  1. 新建目录：new-game/
+  2. 复制任一游戏的 index.html 作为模板
+  3. 修改标题、规则文字、storageKey
+  4. 编写 game.js，调用 GameShell.init()
+  5. 如需特殊样式，在 style.css 中添加
+  6. 在根目录 index.html 中添加游戏卡片
+  7. 准备封面图放入 images/
+
+7.2 修改公共样式
+  - 修改 common/style.css 会影响所有游戏
+  - 注意 .landscape / .portrait 类的样式联动
+  - CSS变量修改会全局生效
+
+7.3 修改棋盘工具
+  - game-shell.js 中的棋盘渲染、坐标工具被多个游戏共用
+  - 修改前确认不会影响其他游戏
+
+7.4 缓存问题
+  - JS和CSS链接带有时间戳参数，更新时修改时间戳强制刷新
+  - 音效和SVG图片无时间戳，如需更新需手动清缓存或改名
+
+7.5 性能注意
+  - 棋盘渲染使用 innerHTML = '' 后重建，频繁操作可能影响性能
+  - 眼疾手快的动态生成间隔最小100ms，确保不会过快
+  - 音效缓存避免重复创建Audio对象
+
+7.6 已知可优化点
+  - 部分游戏的 style.css 为空文件，可删除或合并
+  - 统计按钮（statsBtn）当前无功能实现
+  - 分享按钮（shareBtn）功能未完善
+  - 皇后捉小兵的黑兵AI较简单，可扩展更智能的走法
+
+
+================================================================================
+八、快速参考
+================================================================================
+
+文件修改对照表：
+
+  修改首页内容        → index.html, style.css
+  修改公共样式        → common/style.css
+  修改公共逻辑        → common/game-shell.js
+  修改游戏逻辑        → [game-dir]/game.js
+  修改游戏样式        → [game-dir]/style.css
+  添加/修改棋子皮肤   → common/Chessman/[skin]/
+  添加/修改音效       → common/sounds/
+  添加新游戏          → 新建目录 + 修改根index.html + 添加封面图
+
+常用GameShell API：
+
+  GameShell.init({ title, storageKey, rulesText, onInit, onRestart })
+  GameShell.updateScore(score)
+  GameShell.gameOver(score)
+  GameShell.playSound('capture' | 'check' | 'illegal' | 'move_self' | 'timeout')
+  GameShell.renderBoard(boardEl, board, { skin, renderSquare })
+  GameShell.createTimer({ onTick, onTimeout, initialTime })
+
+================================================================================
+                              文档结束
+================================================================================

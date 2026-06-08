@@ -1,0 +1,19 @@
+/* ===== 翻翻乐专用样式 ===== */
+
+/* 棋子背面（未翻开） */
+.piece.face-down {
+  cursor: pointer;
+}
+.piece.face-down img {
+  filter: none;
+}
+
+/* 棋子正面（已翻开） */
+.piece.face-up {
+  cursor: default;
+}
+
+/* 配对失败摇晃 */
+.piece.shake {
+  animation: shake 0.4s ease;
+}
