@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wechess-fun-web",
+  "compatibility_date": "2026-06-11",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": ".",
+    // 💡 核心：这行命令会强行让 Cloudflare 扔掉 node_modules 文件夹！
+    "exclude": ["node_modules", ".git"]
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
+}
