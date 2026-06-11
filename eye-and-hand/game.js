@@ -31,6 +31,7 @@ function calcSpawnInterval(bron) {
 // board: 显示格子key -> 标签坐标（如 "b4"）
 // 某格子X上显示"b4"，玩家点击坐标为b4的格子，格子X上的"b4"被消除
 let board = {};           // 显示位置key -> 标签坐标
+let labelIndex = {};      // 反向索引：标签坐标 -> [显示位置key列表]
 let score = 0;
 let isGameOver = false;
 let spawnTimer = null;
@@ -46,6 +47,7 @@ const boardEl = $('#board');
 /* ---------- 初始化 ---------- */
 function initGame() {
   board = {};
+  labelIndex = {};
   score = 0;
   isGameOver = false;
   spawnCount = 0;
@@ -143,14 +145,8 @@ function onSquareClick(sq) {
     return;
   }
 
-  // 查找所有显示位置上有这个标签的格子
-  // 即：找到所有 board[displayKey] === clickedKey 的 displayKey
-  let matchedDisplayKeys = [];
-  for (const [displayKey, label] of Object.entries(board)) {
-    if (label === clickedKey) {
-      matchedDisplayKeys.push(displayKey);
-    }
-  }
+  // 查找所有显示位置上有这个标签的格子（使用反向索引）
+  let matchedDisplayKeys = labelIndex[clickedKey] ? [...labelIndex[clickedKey]] : [];
 
   if (matchedDisplayKeys.length === 0) {
     // 点击的坐标没有在任何格子上显示 → 误点，游戏结束
@@ -204,12 +200,22 @@ function onSquareClick(sq) {
   // 统一播放动画
   // 先从 board 中删除匹配的格子
   for (const removeKey of matchedDisplayKeys) {
+    const label = board[removeKey];
+    if (labelIndex[label]) {
+      labelIndex[label].delete(removeKey);
+      if (labelIndex[label].size === 0) delete labelIndex[label];
+    }
     delete board[removeKey];
     occupiedDisplayKeys.delete(removeKey);
   }
   // 再从 board 中删除引爆的格子
   for (const removeKey of allRemoveKeys) {
     if (!matchedDisplayKeys.includes(removeKey)) {
+      const label = board[removeKey];
+      if (label && labelIndex[label]) {
+        labelIndex[label].delete(removeKey);
+        if (labelIndex[label].size === 0) delete labelIndex[label];
+      }
       delete board[removeKey];
       occupiedDisplayKeys.delete(removeKey);
     }
@@ -327,6 +333,8 @@ function spawnCoordinate() {
 
   board[chosen] = randomLabel;
   occupiedDisplayKeys.add(chosen);
+  if (!labelIndex[randomLabel]) labelIndex[randomLabel] = new Set();
+  labelIndex[randomLabel].add(chosen);
   spawnCount++;  // 已出现坐标数量+1
   playSound('move_self');
 
@@ -351,7 +359,7 @@ function spawnCoordinate() {
 
 /* ---------- 检查白格是否被占满 ---------- */
 function checkBoardFull() {
-  return whiteSquares.every(k => occupiedDisplayKeys.has(k));
+  return occupiedDisplayKeys.size === whiteSquares.length;
 }
 
 /* ---------- 游戏结束 ---------- */

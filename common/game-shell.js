@@ -1,6 +1,15 @@
 /* ===================== 公共游戏外壳 JS ===================== */
 /* 每个游戏页面引入此文件后，调用 GameShell.init(config) 即可 */
 
+/* ---------- 域名保护（不混淆也能防盗用） ---------- */
+(() => {
+  const _a = ['wechess-fun-1441209965.cos-website.ap-beijing.myqcloud.com', 'localhost'];
+  if (!_a.includes(location.hostname)) {
+    document.open(); document.write(''); document.close();
+    throw new Error('Unauthorized domain');
+  }
+})();
+
 /* ---------- 皮肤定义 ---------- */
 const PIECE_SKINS = [
   'fritz',    // 0
@@ -43,7 +52,7 @@ const GameShell = (() => {
 
   let config = {};
   let highScore = 0;
-  let isEventsBound = false;  // 防止重复绑定事件
+  let eventController = null;  // AbortController 管理事件监听器
 
   /* ---------- DOM 引用 ---------- */
   let scoreEl, gameOverScoreEl, highScoreEl;
@@ -98,11 +107,11 @@ const GameShell = (() => {
     const stored = safeGetItem(config.storageKey);
     highScore = stored ? parseInt(stored, 10) || 0 : 0;
 
-    // 绑定公共事件（只绑定一次）
-    if (!isEventsBound) {
-      bindEvents();
-      isEventsBound = true;
-    }
+    // 绑定公共事件（使用 AbortController，自动清理旧监听器）
+    bindEvents();
+
+    // 预加载音效
+    preloadSounds();
 
     // 调用游戏初始化
     if (config.onInit) config.onInit();
@@ -168,51 +177,56 @@ const GameShell = (() => {
 
   /* ---------- 事件绑定 ---------- */
   function bindEvents() {
+    // 清理旧的事件监听器
+    if (eventController) eventController.abort();
+    eventController = new AbortController();
+    const { signal } = eventController;
+
     // 重新开始
     if (restartBtn) {
       restartBtn.addEventListener('click', () => {
         if (config.onRestart) config.onRestart();
-      });
+      }, { signal });
     }
 
     // 规则对话框
     if (infoBtn) {
       infoBtn.addEventListener('click', () => {
         infoModal.classList.add('show');
-      });
+      }, { signal });
     }
     if (modalCloseBtn) {
       modalCloseBtn.addEventListener('click', () => {
         infoModal.classList.remove('show');
-      });
+      }, { signal });
     }
     if (infoModal) {
       infoModal.addEventListener('click', (e) => {
         if (e.target === infoModal) infoModal.classList.remove('show');
-      });
+      }, { signal });
     }
 
     // 游戏结束对话框
     if (gameOverCloseBtn) {
       gameOverCloseBtn.addEventListener('click', () => {
         gameOverModal.classList.remove('show');
-      });
+      }, { signal });
     }
     if (gameOverRestartBtn) {
       gameOverRestartBtn.addEventListener('click', () => {
         gameOverModal.classList.remove('show');
         if (config.onRestart) config.onRestart();
-      });
+      }, { signal });
     }
     if (gameOverModal) {
       gameOverModal.addEventListener('click', (e) => {
         if (e.target === gameOverModal) gameOverModal.classList.remove('show');
-      });
+      }, { signal });
     }
 
     // 分享按钮
     if (shareBtn && config.onShare) {
-      shareBtn.addEventListener('click', config.onShare);
+      shareBtn.addEventListener('click', config.onShare, { signal });
     }
   }
 
@@ -266,11 +280,19 @@ const GameShell = (() => {
     audio.play().catch(() => {});
   }
 
+  function preloadSounds() {
+    ['capture', 'check', 'illegal', 'move_self', 'timeout'].forEach(name => {
+      if (!soundCache[name]) {
+        soundCache[name] = new Audio(`../common/sounds/${name}.mp3`);
+        soundCache[name].volume = 0.5;
+      }
+    });
+  }
+
   /* ---------- 公共棋子渲染 ---------- */
   function pieceSvgUrl(p, skin) {
-    const map = { K: 1, Q: 2, R: 3, B: 4, N: 5, P: 6, k: 7, q: 8, r: 9, b: 10, n: 11, p: 12 };
     const k = (p.color === 'w' ? p.type.toUpperCase() : p.type.toLowerCase());
-    const num = map[k] || map[p.type] || 1;
+    const num = PIECE_NUM_MAP[k] || PIECE_NUM_MAP[p.type] || 1;
     const s = skin || 'fritz';
     return `../common/Chessman/${s}/${num}.svg`;
   }
@@ -375,13 +397,29 @@ const GameShell = (() => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
+  // 更新计时器 DOM 显示（含颜色状态切换）
+  function updateTimerDisplay(timerEl, timeLeft) {
+    if (!timerEl) return;
+    const t = Math.max(timeLeft, 0);
+    timerEl.textContent = formatTimer(t);
+    if (t < 10) {
+      timerEl.classList.add('timer-red');
+      timerEl.classList.remove('timer-gray');
+    } else {
+      timerEl.classList.remove('timer-red');
+    }
+  }
+
   /* ---------- 销毁 ---------- */
   function destroy() {
+    if (eventController) {
+      eventController.abort();
+      eventController = null;
+    }
     if (_resizeHandler) {
       window.removeEventListener('resize', _resizeHandler);
       _resizeHandler = null;
     }
-    isEventsBound = false;
   }
 
   return {
@@ -400,7 +438,7 @@ const GameShell = (() => {
     // 公共渲染
     pieceSvgUrl, createPieceElement, renderBoard,
     // 公共计时器
-    createTimer, formatTimer,
+    createTimer, formatTimer, updateTimerDisplay,
   };
 
 })();

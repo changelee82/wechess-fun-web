@@ -20,7 +20,6 @@ const PAWN_START_RANK = '8';
 let board = {};
 let score = 0;
 let turn = 'w';
-let selected = null;
 let animating = false;
 let areSquareEventsBound = false;  // 防止重复绑定事件
 let queenPos = null;               // 缓存白后位置，避免每次遍历 board
@@ -35,7 +34,6 @@ function initGame() {
   board[key(PAWN_START_FILE, PAWN_START_RANK)] = { type: 'P', color: 'b' };
   score = 0;
   turn = 'w';
-  selected = null;
   animating = false;
   queenPos = key(QUEEN_START_FILE, QUEEN_START_RANK);
   GameShell.updateScore(score);
@@ -122,7 +120,6 @@ function getQueenMoves(k) {
 
 /* ---------- 执行白后移动（带动画） ---------- */
 function executeWhiteMove(from, to) {
-  selected = null;
   animating = true;
   turn = 'anim';
 

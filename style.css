@@ -1,11 +1,19 @@
 /* ===================== 首页样式 ===================== */
 
+/* ===== CSS 自定义属性 ===== */
+:root {
+  --color-primary: #5B7BC0;
+  --color-text: #333;
+  --color-bg: #F5F5F5;
+  --color-surface: #FFFFFF;
+}
+
 /* ===== 全局 ===== */
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body {
   height: 100%;
-  background: var(--color-bg, #F5F5F5);
-  color: var(--color-text, #333);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -17,7 +25,7 @@ html, body {
   height: 100vh;
   max-width: 100vw;
   max-height: 100vh;
-  background: var(--color-bg, #F5F5F5);
+  background: var(--color-bg);
   overflow: hidden;
 }
 
@@ -34,7 +42,7 @@ html, body {
 .nav-header {
   width: 100%;
   height: 48px;
-  background: var(--color-primary, #5B7BC0);
+  background: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -70,7 +78,7 @@ html, body {
   width: 100%;
   border-radius: 12px;
   overflow: hidden;
-  background: var(--color-surface, #FFFFFF);
+  background: var(--color-surface);
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   text-decoration: none;

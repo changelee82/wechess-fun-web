@@ -79,25 +79,33 @@ html, body {
 .nav-back:active, .nav-info:active {
   background: rgba(255,255,255,0.24);
 }
-.nav-back::after, .nav-info::after {
+/* ===== 公共波纹效果 ===== */
+.nav-back::after, .nav-info::after,
+.md-btn::after,
+.gameover-close::after {
   content: "";
   position: absolute;
   top: 50%;
   left: 50%;
   width: 0;
   height: 0;
-  background: rgba(255,255,255,0.24);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
   opacity: 0;
   pointer-events: none;
 }
-.nav-back:active::after, .nav-info:active::after {
+.nav-back:active::after, .nav-info:active::after,
+.md-btn:active::after,
+.gameover-close:active::after {
   width: 200%;
   height: 200%;
   opacity: 1;
 }
+/* 波纹颜色（各元素不同） */
+.nav-back::after, .nav-info::after { background: rgba(255,255,255,0.24); }
+.md-btn::after { background: rgba(var(--color-primary-rgb),0.2); }
+.gameover-close::after { background: rgba(117,117,117,0.2); }
 .nav-title {
   font-size: 17px;
   font-weight: 500;
@@ -369,31 +377,6 @@ html, body {
   height: 20px;
 }
 
-/* ===== Material Design 波纹效果 ===== */
-.md-ripple {
-  position: relative;
-  overflow: hidden;
-}
-.md-ripple::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: rgba(255,255,255,0.3);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.4s ease, height 0.4s ease, opacity 0.4s ease;
-  opacity: 0;
-  pointer-events: none;
-}
-.md-ripple:active::after {
-  width: 200%;
-  height: 200%;
-  opacity: 1;
-}
-
 /* ===== Material Design 按钮 ===== */
 .md-btn {
   position: relative;
@@ -415,25 +398,6 @@ html, body {
 }
 .md-btn:active {
   background: rgba(var(--color-primary-rgb),0.16);
-}
-.md-btn::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: rgba(var(--color-primary-rgb),0.2);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
-  opacity: 0;
-  pointer-events: none;
-}
-.md-btn:active::after {
-  width: 200%;
-  height: 200%;
-  opacity: 1;
 }
 
 /* ===== Material Design 对话框 ===== */
@@ -501,25 +465,6 @@ html, body {
 }
 .gameover-close:active {
   background: rgba(117,117,117,0.16);
-}
-.gameover-close::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: rgba(117,117,117,0.2);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
-  opacity: 0;
-  pointer-events: none;
-}
-.gameover-close:active::after {
-  width: 200%;
-  height: 200%;
-  opacity: 1;
 }
 .gameover-close img {
   width: 20px;

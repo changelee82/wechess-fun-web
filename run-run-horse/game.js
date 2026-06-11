@@ -1,6 +1,6 @@
 /* ===================== 跳跳马 ===================== */
 
-const { $, $$, FILES, RANKS, BOARD_SIZE, key, parseKey, fi, ri, playSound, pieceSvgUrl, createPieceElement, renderBoard: renderChessBoard, createTimer, formatTimer } = GameShell;
+const { $, $$, FILES, RANKS, BOARD_SIZE, key, parseKey, fi, ri, playSound, pieceSvgUrl, createPieceElement, renderBoard: renderChessBoard, createTimer, formatTimer, updateTimerDisplay } = GameShell;
 
 /* ---------- 常量 ---------- */
 const ANIMATION_DURATION = 200;        // 动画时长(ms)
@@ -39,7 +39,7 @@ function initGame() {
   animating = false;
   timeLeft = INITIAL_TIME;
   GameShell.updateScore(score);
-  updateTimerDisplay();
+  updateTimerDisplay(timerEl, timeLeft);
   if (timerEl) {
     timerEl.classList.remove('timer-gray');
     timerEl.classList.remove('timer-red');
@@ -52,7 +52,7 @@ function initGame() {
 
   renderBoard();
   attachSquareEvents();
-  showLegalMoves(horsePos);
+  clearHighlights(horsePos);
 
   // 使用公共计时器
   if (timer) timer.stop();
@@ -60,7 +60,7 @@ function initGame() {
     initialTime: INITIAL_TIME,
     onTick(t) {
       timeLeft = t;
-      updateTimerDisplay();
+      updateTimerDisplay(timerEl, timeLeft);
     },
     onTimeout() {
       playSound('timeout');
@@ -76,26 +76,10 @@ function clearTimerInterval() {
   if (timer) timer.stop();
 }
 
-function updateTimerDisplay() {
-  if (timerEl) {
-    const t = Math.max(timeLeft, 0);
-    if (t < 10) {
-      // 读秒模式：显示一位小数，红色（严格小于10秒）
-      timerEl.textContent = t.toFixed(1);
-      timerEl.classList.add('timer-red');
-    } else {
-      const mins = Math.floor(t / 60);
-      const secs = Math.floor(t) % 60;
-      timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-      timerEl.classList.remove('timer-red');
-    }
-  }
-}
-
 function addBonusTime() {
   timeLeft += CAPTURE_BONUS_TIME;
   if (timer) timer.addTime(CAPTURE_BONUS_TIME);
-  updateTimerDisplay();
+  updateTimerDisplay(timerEl, timeLeft);
 }
 
 /* ---------- 渲染棋盘 ---------- */
@@ -170,9 +154,8 @@ function shakeHorse(horseKey) {
   }, 400);
 }
 
-/* ---------- 显示合法移动提示 ---------- */
-function showLegalMoves(horseKey) {
-  // 清除之前的高亮
+/* ---------- 清除高亮 ---------- */
+function clearHighlights() {
   $$('.square').forEach(sq => {
     sq.classList.remove('selected', 'legal', 'capture-target');
   });
@@ -255,7 +238,7 @@ function finishMove(isCapture) {
     spawnNewPawns();
   } else {
     // 显示当前合法移动
-    showLegalMoves(horsePos);
+    clearHighlights();
 
     if (isCapture) {
       // 吃掉本轮非最后一个兵
@@ -306,7 +289,7 @@ function spawnNewPawns() {
   }
 
   renderBoard();
-  showLegalMoves(horsePos);
+  clearHighlights();
 
   // 检查是否一步都吃不到（罕见情况）
   const legalMoves = getKnightMoves(horsePos);

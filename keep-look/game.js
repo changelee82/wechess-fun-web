@@ -2,7 +2,7 @@
 
 'use strict';
 
-const { $, $$, FILES, RANKS, BOARD_SIZE, key, parseKey, fi, ri, playSound, pieceSvgUrl, createPieceElement, createTimer, formatTimer } = GameShell;
+const { $, $$, FILES, RANKS, BOARD_SIZE, key, parseKey, fi, ri, playSound, pieceSvgUrl, createPieceElement, createTimer, formatTimer, updateTimerDisplay } = GameShell;
 
 /* ---------- 常量 ---------- */
 const INITIAL_TIME = 60;       // 初始时间 60秒
@@ -145,15 +145,6 @@ function handleTap(e) {
   const skinIndex = Math.floor(squares[idx] / 13);
   const pieceType = squares[idx] % 13; // 1-12
 
-  // 临时显示正面
-  const pieceEl = sq.querySelector('.piece');
-  if (pieceEl) {
-    const img = pieceEl.querySelector('img');
-    if (img) img.src = skinPieceUrl(skinIndex, pieceType);
-    pieceEl.classList.remove('face-down');
-    pieceEl.classList.add('face-up');
-  }
-
   let delay = 0;
 
   if (selectedSquare === -1) {
@@ -167,8 +158,14 @@ function handleTap(e) {
     delay = 1000;
     playSound('illegal');
 
-    // 摇晃动画
-    if (pieceEl) pieceEl.classList.add('shake');
+    // 翻开当前棋子并显示摇晃动画
+    const pieceEl = sq.querySelector('.piece');
+    if (pieceEl) {
+      const img = pieceEl.querySelector('img');
+      if (img) img.src = skinPieceUrl(skinIndex, pieceType);
+      pieceEl.classList.remove('face-down');
+      pieceEl.classList.add('face-up', 'shake');
+    }
 
     isEnabled = false;
     setTimeout(() => {
@@ -199,23 +196,10 @@ function handleTap(e) {
 }
 
 /* ---------- 计时 ---------- */
-function updateTimerDisplay() {
-  if (timerEl) {
-    const t = Math.max(timeLeft, 0);
-    if (t < 10) {
-      timerEl.textContent = formatTimer(t);
-      timerEl.classList.add('timer-red');
-    } else {
-      timerEl.textContent = formatTimer(t);
-      timerEl.classList.remove('timer-red');
-    }
-  }
-}
-
 function addTime() {
   timeLeft += TIME_ADD;
   if (timer) timer.addTime(TIME_ADD);
-  updateTimerDisplay();
+  updateTimerDisplay(timerEl, timeLeft);
 }
 
 function startClock() {
@@ -224,7 +208,7 @@ function startClock() {
     initialTime: INITIAL_TIME,
     onTick(t) {
       timeLeft = t;
-      updateTimerDisplay();
+      updateTimerDisplay(timerEl, timeLeft);
     },
     onTimeout() {
       gameOver();
@@ -232,16 +216,12 @@ function startClock() {
   });
   isRunning = true;
   if (timerEl) timerEl.classList.remove('timer-red', 'timer-gray');
-  updateTimerDisplay();
+  updateTimerDisplay(timerEl, timeLeft);
   timer.start();
 }
 
-function clearTimer() {
-  if (timer) timer.stop();
-}
-
 function stopClock() {
-  clearTimer();
+  if (timer) timer.stop();
 }
 
 /* ---------- 游戏结束 ---------- */
