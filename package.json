@@ -1,8 +1,0 @@
-{
-  "name": "wechess-fun-web",
-  "private": true,
-  "scripts": {
-    "build": "node build.js",
-    "preview": "cd dist && python3 -m http.server 8080"
-  }
-}
