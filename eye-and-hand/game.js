@@ -1,5 +1,8 @@
 /* ===================== 眼疾手快 ===================== */
 
+(() => {
+'use strict';
+
 /* ---------- 从 GameShell 解构公共常量和工具函数 ---------- */
 const { $, $$, FILES, RANKS, BOARD_SIZE, key, parseKey, fi, ri, playSound } = GameShell;
 
@@ -38,11 +41,14 @@ let spawnTimer = null;
 let occupiedDisplayKeys = new Set();  // 已被占用的显示位置集合
 let whiteSquares = [];               // 所有白格子key列表
 let audioEnabled = true;             // 声音开关
-let areSquareEventsBound = false;    // 防止重复绑定事件
 let spawnCount = 0;                  // 已出现的坐标数量（bron）
 
 /* ---------- DOM ---------- */
 const boardEl = $('#board');
+
+/* ---------- 事件管理 ---------- */
+let squareEventController = null;
+let visibilityController = null;
 
 /* ---------- 初始化 ---------- */
 function initGame() {
@@ -68,6 +74,7 @@ function initGame() {
 
   renderBoard();
   attachSquareEvents();
+  attachVisibilityEvent();
 
   // 启动动态定时生成
   scheduleNextSpawn();
@@ -117,12 +124,23 @@ function renderBoard() {
   }
 }
 
-/* ---------- 事件绑定（使用事件委托，只绑定一次） ---------- */
+/* ---------- 事件绑定（使用 AbortController，重启时清理重建） ---------- */
 function attachSquareEvents() {
-  if (areSquareEventsBound) return;
-  areSquareEventsBound = true;
+  if (squareEventController) squareEventController.abort();
+  squareEventController = new AbortController();
+  boardEl.addEventListener('click', onBoardClick, { signal: squareEventController.signal });
+}
 
-  boardEl.addEventListener('click', onBoardClick);
+function attachVisibilityEvent() {
+  if (visibilityController) visibilityController.abort();
+  visibilityController = new AbortController();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearSpawnTimer();
+    } else if (!isGameOver) {
+      scheduleNextSpawn();
+    }
+  }, { signal: visibilityController.signal });
 }
 
 function onBoardClick(e) {
@@ -235,9 +253,19 @@ function onSquareClick(sq) {
     // 点击格子也闪绿
     sq.style.backgroundColor = 'rgba(0,153,68,0.6)';
 
-    // 动画结束后统一重新渲染棋盘
+    // 动画结束后增量清理格子（不重建整个棋盘）
     setTimeout(() => {
-      renderBoard();
+      for (const removeKey of allRemoveKeys) {
+        const removeSq = $(`.square[data-key="${removeKey}"]`, boardEl);
+        if (removeSq) {
+          removeSq.style.backgroundColor = '';
+          removeSq.classList.remove('occupied');
+          const labelEl = removeSq.querySelector('.coord-label');
+          if (labelEl) labelEl.remove();
+        }
+      }
+      // 点击格子恢复原色
+      sq.style.backgroundColor = '';
       // 检查是否白格被占满
       if (checkBoardFull()) {
         playSound('timeout');
@@ -371,15 +399,6 @@ function endGame() {
   }, GAME_OVER_DELAY);
 }
 
-/* ---------- 页面可见性变化处理 ---------- */
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    clearSpawnTimer();
-  } else if (!isGameOver) {
-    scheduleNextSpawn();
-  }
-});
-
 /* ---------- 启动 ---------- */
 GameShell.init({
   title: '眼疾手快',
@@ -388,3 +407,5 @@ GameShell.init({
   onInit: initGame,
   onRestart: initGame,
 });
+
+})();

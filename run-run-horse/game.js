@@ -1,5 +1,8 @@
 /* ===================== 跳跳马 ===================== */
 
+(() => {
+'use strict';
+
 const { $, $$, FILES, RANKS, BOARD_SIZE, key, parseKey, fi, ri, playSound, pieceSvgUrl, createPieceElement, renderBoard: renderChessBoard, createTimer, formatTimer, updateTimerDisplay } = GameShell;
 
 /* ---------- 常量 ---------- */
@@ -22,8 +25,6 @@ let board = {};           // 棋盘: key -> { type, color }
 let score = 0;
 let round = 1;            // 当前回合数
 let animating = false;
-let areSquareEventsBound = false;
-let timeLeft = INITIAL_TIME;  // 倒计时剩余秒数
 let timer = null;             // 公共计时器实例
 let horsePos = null;          // 白马当前位置缓存
 
@@ -31,15 +32,17 @@ let horsePos = null;          // 白马当前位置缓存
 const boardEl = $('#board');
 const timerEl = $('#timer');
 
+/* ---------- 事件管理 ---------- */
+let squareEventController = null;
+
 /* ---------- 初始化 ---------- */
 function initGame() {
   board = {};
   score = 0;
   round = 1;
   animating = false;
-  timeLeft = INITIAL_TIME;
   GameShell.updateScore(score);
-  updateTimerDisplay(timerEl, timeLeft);
+  updateTimerDisplay(timerEl, INITIAL_TIME);
   if (timerEl) {
     timerEl.classList.remove('timer-gray');
     timerEl.classList.remove('timer-red');
@@ -59,8 +62,7 @@ function initGame() {
   timer = createTimer({
     initialTime: INITIAL_TIME,
     onTick(t) {
-      timeLeft = t;
-      updateTimerDisplay(timerEl, timeLeft);
+      updateTimerDisplay(timerEl, t);
     },
     onTimeout() {
       playSound('timeout');
@@ -77,9 +79,8 @@ function clearTimerInterval() {
 }
 
 function addBonusTime() {
-  timeLeft += CAPTURE_BONUS_TIME;
   if (timer) timer.addTime(CAPTURE_BONUS_TIME);
-  updateTimerDisplay(timerEl, timeLeft);
+  updateTimerDisplay(timerEl, timer ? timer.getTime() : INITIAL_TIME);
 }
 
 /* ---------- 渲染棋盘 ---------- */
@@ -87,12 +88,11 @@ function renderBoard() {
   renderChessBoard(boardEl, board);
 }
 
-/* ---------- 事件绑定（事件委托） ---------- */
+/* ---------- 事件绑定（使用 AbortController，重启时清理重建） ---------- */
 function attachSquareEvents() {
-  if (areSquareEventsBound) return;
-  areSquareEventsBound = true;
-
-  boardEl.addEventListener('click', onBoardClick);
+  if (squareEventController) squareEventController.abort();
+  squareEventController = new AbortController();
+  boardEl.addEventListener('click', onBoardClick, { signal: squareEventController.signal });
 }
 
 function onBoardClick(e) {
@@ -165,7 +165,6 @@ function clearHighlights() {
 function executeMove(from, to, isCapture) {
   animating = true;
 
-  // 先更新数据，但吃子时保留被吃棋子用于动画
   const capturedPiece = isCapture ? board[to] : null;
   const horse = { ...board[from] };
 
@@ -175,45 +174,49 @@ function executeMove(from, to, isCapture) {
     GameShell.updateScore(score);
   }
 
-  // 渲染：马在目标位置，但吃子时保留被吃棋子的DOM（幽灵）
-  delete board[from];
-  board[to] = horse;
-  horsePos = to;
-  renderBoard();
+  // 不先 renderBoard，直接在当前 DOM 上做动画，避免闪帧
+  const fromSq = $(`.square[data-key="${from}"]`, boardEl);
+  const toSq = $(`.square[data-key="${to}"]`, boardEl);
+  const pieceEl = fromSq ? $(`.piece`, fromSq) : null;
 
-  // 吃子时，在目标格创建被吃棋子的幽灵元素
-  if (isCapture && capturedPiece) {
-    const toSq = $(`.square[data-key="${to}"]`, boardEl);
-    if (toSq) {
-      const ghostEl = createPieceElement(capturedPiece);
-      ghostEl.classList.add('captured-ghost');
-      toSq.appendChild(ghostEl);
-    }
+  // 将被吃棋子标记为幽灵（不删除再创建，避免闪帧）
+  if (isCapture && toSq) {
+    const targetPiece = $(`.piece`, toSq);
+    if (targetPiece) targetPiece.classList.add('captured-ghost');
   }
 
-  // 动画
-  const toSq = $(`.square[data-key="${to}"]`, boardEl);
-  const pieceEl = toSq ? $(`.piece:not(.captured-ghost)`, toSq) : null;
-  const fromSq = $(`.square[data-key="${from}"]`, boardEl);
-
   if (pieceEl && fromSq && toSq) {
+    // 先算偏移，设 transform 后再移动 DOM，避免闪帧
     const r1 = fromSq.getBoundingClientRect();
     const r2 = toSq.getBoundingClientRect();
     const dx = r1.left - r2.left;
     const dy = r1.top - r2.top;
-
     pieceEl.style.transition = 'none';
     pieceEl.style.transform = `translate(${dx}px, ${dy}px)`;
+    toSq.appendChild(pieceEl);
     pieceEl.offsetHeight;
     pieceEl.style.transition = `transform ${ANIMATION_DURATION}ms ease`;
     pieceEl.style.transform = 'translate(0, 0)';
 
     setTimeout(() => {
+      // 动画结束后增量更新DOM，避免全量重建导致闪烁
+      delete board[from];
+      board[to] = horse;
+      horsePos = to;
+      // 移除被吃棋子的幽灵
+      $$('.captured-ghost', boardEl).forEach(el => el.remove());
+      // 清理移动棋子的内联样式并更新data-key
       pieceEl.style.transition = '';
       pieceEl.style.transform = '';
+      pieceEl.dataset.key = to;
       finishMove(isCapture);
     }, ANIMATION_DURATION);
   } else {
+    // 降级：直接更新数据并渲染
+    delete board[from];
+    board[to] = horse;
+    horsePos = to;
+    renderBoard();
     finishMove(isCapture);
   }
 }
@@ -221,11 +224,6 @@ function executeMove(from, to, isCapture) {
 /* ---------- 移动结束处理 ---------- */
 function finishMove(isCapture) {
   animating = false;
-
-  // 吃子时，移除幽灵棋子（兵消失）
-  if (isCapture) {
-    $$('.captured-ghost').forEach(el => el.remove());
-  }
 
   // 检查是否还有黑兵
   const blackPawns = Object.entries(board).filter(([_, p]) => p.color === 'b' && p.type === 'P');
@@ -237,15 +235,18 @@ function finishMove(isCapture) {
     round += 1;
     spawnNewPawns();
   } else {
-    // 显示当前合法移动
     clearHighlights();
 
     if (isCapture) {
       // 吃掉本轮非最后一个兵
       playSound('capture');
     } else {
-      // 马走完但没吃到兵
-      playSound('move_self');
+      // 马跳空，游戏结束
+      playSound('illegal');
+      clearTimerInterval();
+      if (timerEl) timerEl.classList.add('timer-gray');
+      GameShell.gameOver(score);
+      return;
     }
 
     // 检查是否还能吃到任何黑兵
@@ -310,3 +311,5 @@ GameShell.init({
   onInit: initGame,
   onRestart: initGame,
 });
+
+})();

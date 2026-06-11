@@ -1,5 +1,8 @@
 /* ===================== 皇后捉小兵 ===================== */
 
+(() => {
+'use strict';
+
 /* ---------- 从 GameShell 解构公共 API ---------- */
 const { $, $$, FILES, RANKS, BOARD_SIZE, key, parseKey, fi, ri, inBoard, playSound, pieceSvgUrl, createPieceElement, renderBoard: renderChessBoard } = GameShell;
 
@@ -21,11 +24,13 @@ let board = {};
 let score = 0;
 let turn = 'w';
 let animating = false;
-let areSquareEventsBound = false;  // 防止重复绑定事件
 let queenPos = null;               // 缓存白后位置，避免每次遍历 board
 
 /* ---------- DOM ---------- */
 const boardEl = $('#board');
+
+/* ---------- 事件管理 ---------- */
+let squareEventController = null;
 
 /* ---------- 初始化 ---------- */
 function initGame() {
@@ -46,13 +51,13 @@ function renderBoard() {
   attachSquareEvents();
 }
 
-/* ---------- 事件绑定（使用事件委托，只绑定一次） ---------- */
+/* ---------- 事件绑定（使用 AbortController，重启时清理重建） ---------- */
 function attachSquareEvents() {
-  if (areSquareEventsBound) return;
-  areSquareEventsBound = true;
-
-  boardEl.addEventListener('mousedown', onBoardMouseDown);
-  boardEl.addEventListener('touchstart', onBoardTouchStart, { passive: false });
+  if (squareEventController) squareEventController.abort();
+  squareEventController = new AbortController();
+  const { signal } = squareEventController;
+  boardEl.addEventListener('mousedown', onBoardMouseDown, { signal });
+  boardEl.addEventListener('touchstart', onBoardTouchStart, { passive: false, signal });
 }
 
 function onBoardMouseDown(e) {
@@ -131,27 +136,21 @@ function executeWhiteMove(from, to) {
   const toSq = $(`.square[data-key="${to}"]`, boardEl);
   const pieceEl = fromSq ? $(`.piece`, fromSq) : null;
 
-  // 创建被吃棋子的幽灵元素
+  // 将被吃棋子标记为幽灵（不删除再创建，避免闪帧）
   if (captured && toSq) {
-    const ghostEl = createPieceElement(captured);
-    ghostEl.classList.add('captured-ghost');
-    toSq.appendChild(ghostEl);
+    const targetPiece = $(`.piece`, toSq);
+    if (targetPiece) targetPiece.classList.add('captured-ghost');
   }
 
   if (pieceEl && fromSq && toSq) {
-    // 移除目标格子中原来的棋子（被吃掉的棋子）
-    const targetPiece = $(`.piece:not(.captured-ghost)`, toSq);
-    if (targetPiece) targetPiece.remove();
-
-    // 将棋子DOM移到目标格子，然后从原位置动画滑入
-    toSq.appendChild(pieceEl);
+    // 先算偏移，设 transform 后再移动 DOM，避免闪帧
     const r1 = fromSq.getBoundingClientRect();
     const r2 = toSq.getBoundingClientRect();
     const dx = r1.left - r2.left;
     const dy = r1.top - r2.top;
-
     pieceEl.style.transition = 'none';
     pieceEl.style.transform = `translate(${dx}px, ${dy}px)`;
+    toSq.appendChild(pieceEl);
     pieceEl.offsetHeight; // 强制重绘
     pieceEl.style.transition = `transform ${ANIMATION_DURATION}ms ease`;
     pieceEl.style.transform = 'translate(0, 0)';
@@ -163,6 +162,22 @@ function executeWhiteMove(from, to) {
     }, ANIMATION_DURATION);
   } else {
     finishWhiteMove(from, to, captured, queen);
+  }
+}
+
+/* ---------- 增量更新DOM（避免全量重建导致吃子闪烁） ---------- */
+function updatePieceAfterAnimation(from, to) {
+  // 移除被吃棋子的幽灵
+  $$('.captured-ghost', boardEl).forEach(el => el.remove());
+  // 清理目标格子中棋子的内联样式并更新data-key
+  const toSq = $(`.square[data-key="${to}"]`, boardEl);
+  if (toSq) {
+    const pieceEl = $(`.piece`, toSq);
+    if (pieceEl) {
+      pieceEl.style.transition = '';
+      pieceEl.style.transform = '';
+      pieceEl.dataset.key = to;
+    }
   }
 }
 
@@ -180,7 +195,7 @@ function finishWhiteMove(from, to, captured, queen) {
   }
 
   GameShell.updateScore(score);
-  renderBoard();
+  updatePieceAfterAnimation(from, to);
   turn = 'b';
   setTimeout(blackTurn, BLACK_TURN_DELAY);
 }
@@ -216,29 +231,49 @@ function blackTurn() {
     const to = queenPos;
     const pawn = { ...board[eater] };
     const queen = { ...board[to] };
+
+    // 不先 renderBoard，直接在当前 DOM 上做动画
+    const fromSq = $(`.square[data-key="${eater}"]`, boardEl);
+    const toSq = $(`.square[data-key="${to}"]`, boardEl);
+    const pieceEl = fromSq ? $(`.piece`, fromSq) : null;
+
+    // 先更新数据
     delete board[eater];
     board[to] = pawn;
 
-    renderBoard();
-
-    const toSq = $(`.square[data-key="${to}"]`, boardEl);
+    // 将白后标记为幽灵（不删除再创建，避免闪帧）
     if (toSq) {
-      const queenEl = createPieceElement(queen);
-      queenEl.classList.add('captured-ghost');
-      toSq.appendChild(queenEl);
+      const targetPiece = $(`.piece`, toSq);
+      if (targetPiece) targetPiece.classList.add('captured-ghost');
     }
 
-    animateMoveFromTo(eater, to, () => {
-      delete board[to];
-      board[to] = pawn;
+    if (pieceEl && fromSq && toSq) {
+      // 先算偏移，再移动DOM，避免闪帧
+      const r1 = fromSq.getBoundingClientRect();
+      const r2 = toSq.getBoundingClientRect();
+      const dx = r1.left - r2.left;
+      const dy = r1.top - r2.top;
+      pieceEl.style.transition = 'none';
+      pieceEl.style.transform = `translate(${dx}px, ${dy}px)`;
+      toSq.appendChild(pieceEl);
+      pieceEl.offsetHeight;
+      pieceEl.style.transition = `transform ${ANIMATION_DURATION}ms ease`;
+      pieceEl.style.transform = 'translate(0, 0)';
+
+      setTimeout(() => {
+        updatePieceAfterAnimation(eater, to);
+        playSound('check');
+        GameShell.gameOver(score);
+      }, ANIMATION_DURATION);
+    } else {
       renderBoard();
       playSound('check');
       GameShell.gameOver(score);
-    });
+    }
     return;
   }
 
-  const promotions = Object.entries(board).filter(([k, p]) => p.color === 'b' && p.type === 'P' && k[1] === '1');
+  const promotions = Object.entries(board).filter(([k, p]) => p.color === 'b' && p.type === 'P' && parseKey(k).r === 1);
   if (promotions.length > 0) {
     for (const [k, p] of promotions) p.type = 'Q';
     renderBoard();
@@ -247,15 +282,20 @@ function blackTurn() {
     return;
   }
 
+  // 使用临时棋盘计算所有兵的移动，确保同时移动语义正确
+  const tempBoard = {};
+  for (const k in board) tempBoard[k] = board[k];
+
   const moves = [];
   for (const k of blackPawns) {
     const { f, r } = parseKey(k);
     const forwardR = String(r - PAWN_FORWARD_STEP);
-    if (inBoard(f, forwardR) && !board[key(f, forwardR)]) {
-      moves.push({ from: k, to: key(f, forwardR) });
-      const pawn = { ...board[k] };
-      delete board[k];
-      board[key(f, forwardR)] = pawn;
+    const toKey = key(f, forwardR);
+    if (inBoard(f, forwardR) && !tempBoard[toKey]) {
+      moves.push({ from: k, to: toKey });
+      // 更新临时棋盘，使后续兵的移动计算正确
+      tempBoard[toKey] = tempBoard[k];
+      delete tempBoard[k];
     }
   }
 
@@ -264,18 +304,56 @@ function blackTurn() {
     return;
   }
 
-  renderBoard();
-
-  let completed = 0;
+  // 直接移动现有DOM元素做动画，避免renderBoard全量重建导致闪烁
+  // 1. 记录每个兵的旧位置和DOM元素
+  const animInfos = [];
   for (const { from, to } of moves) {
-    animateMoveFromTo(from, to, () => {
-      completed++;
-      if (completed >= moves.length) {
-        playSound('move_self');
-        finishBlackTurn();
-      }
-    });
+    const fromSq = $(`.square[data-key="${from}"]`, boardEl);
+    const pieceEl = fromSq ? $(`.piece`, fromSq) : null;
+    if (pieceEl && fromSq) {
+      animInfos.push({
+        from, to, pieceEl,
+        fromRect: fromSq.getBoundingClientRect()
+      });
+    }
   }
+
+  // 2. 更新棋盘数据
+  for (const { from, to } of moves) {
+    board[to] = board[from];
+    delete board[from];
+  }
+
+  // 3. 将棋子元素移动到新格子，并应用反向偏移（Invert）
+  for (const info of animInfos) {
+    const { to, pieceEl } = info;
+    const toSq = $(`.square[data-key="${to}"]`, boardEl);
+    if (toSq) {
+      toSq.appendChild(pieceEl);
+      const r2 = toSq.getBoundingClientRect();
+      const dx = info.fromRect.left - r2.left;
+      const dy = info.fromRect.top - r2.top;
+      pieceEl.style.transition = 'none';
+      pieceEl.style.transform = `translate(${dx}px, ${dy}px)`;
+      pieceEl.dataset.key = to;
+    }
+  }
+
+  // 4. 强制重绘后启动动画（Play）
+  boardEl.offsetHeight;
+  for (const { pieceEl } of animInfos) {
+    pieceEl.style.transition = `transform ${ANIMATION_DURATION}ms ease`;
+    pieceEl.style.transform = 'translate(0, 0)';
+  }
+
+  setTimeout(() => {
+    for (const { pieceEl } of animInfos) {
+      pieceEl.style.transition = '';
+      pieceEl.style.transform = '';
+    }
+    playSound('move_self');
+    finishBlackTurn();
+  }, ANIMATION_DURATION);
 }
 
 function finishBlackTurn() {
@@ -315,8 +393,14 @@ function finishBlackTurn() {
       }
     }
 
-    board[key(f, '8')] = { type: 'P', color: 'b' };
-    renderBoard();
+    const pawnKey = key(f, '8');
+    board[pawnKey] = { type: 'P', color: 'b' };
+    // 只添加新兵的 DOM，不全量重建
+    const sq = $(`.square[data-key="${pawnKey}"]`, boardEl);
+    if (sq) {
+      const pieceEl = createPieceElement({ type: 'P', color: 'b' });
+      sq.appendChild(pieceEl);
+    }
   }
 
   turn = 'w';
@@ -330,34 +414,6 @@ function canPawnCaptureQueen(pawnKey, queenKey) {
   return (ri(q.r) === ri(r) - 1) && (Math.abs(fi(q.f) - fi(f)) === 1);
 }
 
-/* ---------- 动画系统 ---------- */
-function animateMoveFromTo(from, to, onDone) {
-  const toSq = $(`.square[data-key="${to}"]`, boardEl);
-  if (!toSq) { if (onDone) onDone(); return; }
-  const pieceEl = $(`.piece`, toSq);
-  if (!pieceEl) { if (onDone) onDone(); return; }
-
-  const fromSq = $(`.square[data-key="${from}"]`, boardEl);
-  if (!fromSq) { if (onDone) onDone(); return; }
-
-  const r1 = fromSq.getBoundingClientRect();
-  const r2 = toSq.getBoundingClientRect();
-  const dx = r1.left - r2.left;
-  const dy = r1.top - r2.top;
-
-  pieceEl.style.transition = 'none';
-  pieceEl.style.transform = `translate(${dx}px, ${dy}px)`;
-  pieceEl.offsetHeight;
-  pieceEl.style.transition = `transform ${ANIMATION_DURATION}ms ease`;
-  pieceEl.style.transform = 'translate(0, 0)';
-
-  setTimeout(() => {
-    pieceEl.style.transition = '';
-    pieceEl.style.transform = '';
-    if (onDone) onDone();
-  }, ANIMATION_DURATION);
-}
-
 /* ---------- 启动 ---------- */
 GameShell.init({
   title: '皇后捉小兵',
@@ -366,3 +422,5 @@ GameShell.init({
   onInit: initGame,
   onRestart: initGame,
 });
+
+})();

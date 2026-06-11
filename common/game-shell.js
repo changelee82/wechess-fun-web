@@ -1,15 +1,6 @@
 /* ===================== 公共游戏外壳 JS ===================== */
 /* 每个游戏页面引入此文件后，调用 GameShell.init(config) 即可 */
 
-/* ---------- 域名保护（不混淆也能防盗用） ---------- */
-(() => {
-  const _a = ['wechess-fun-1441209965.cos-website.ap-beijing.myqcloud.com', 'localhost'];
-  if (!_a.includes(location.hostname)) {
-    document.open(); document.write(''); document.close();
-    throw new Error('Unauthorized domain');
-  }
-})();
-
 /* ---------- 皮肤定义 ---------- */
 const PIECE_SKINS = [
   'fritz',    // 0
@@ -122,7 +113,7 @@ const GameShell = (() => {
       safeSetItem(visitedKey, '1');
       // 延迟弹出，确保页面渲染完成
       setTimeout(() => {
-        infoModal.classList.add('modal-show');
+        infoModal.classList.add('show');
       }, 300);
     }
 
@@ -338,33 +329,42 @@ const GameShell = (() => {
   /* ---------- 公共计时器工具 ---------- */
   function createTimer(options = {}) {
     const { onTick, onTimeout, initialTime = 60 } = options;
-    let timeLeft = initialTime;
+    let remainingMs = initialTime * 1000;
+    let startStamp = null;
     let handle = null;
     let running = false;
 
+    function getRemainingMs() {
+      if (running && startStamp) {
+        return Math.max(0, remainingMs - (Date.now() - startStamp));
+      }
+      return Math.max(0, remainingMs);
+    }
+
     function tick() {
       if (!running) return;
-      if (timeLeft <= 10) {
-        timeLeft -= 0.1;
-      } else {
-        timeLeft -= 1;
-      }
-      if (onTick) onTick(timeLeft);
-      if (timeLeft <= 0) {
+      const remainSec = getRemainingMs() / 1000;
+      if (onTick) onTick(remainSec);
+      if (remainSec <= 0) {
         stop();
         if (onTimeout) onTimeout();
         return;
       }
-      handle = setTimeout(tick, timeLeft <= 10 ? 100 : 1000);
+      handle = setTimeout(tick, remainSec <= 10 ? 100 : 1000);
     }
 
     function start() {
       running = true;
+      startStamp = Date.now();
       handle = setTimeout(tick, 1000);
     }
 
     function stop() {
+      if (running && startStamp) {
+        remainingMs = getRemainingMs();
+      }
       running = false;
+      startStamp = null;
       if (handle) {
         clearTimeout(handle);
         handle = null;
@@ -372,16 +372,16 @@ const GameShell = (() => {
     }
 
     function addTime(seconds) {
-      timeLeft += seconds;
+      remainingMs += seconds * 1000;
     }
 
     function getTime() {
-      return timeLeft;
+      return getRemainingMs() / 1000;
     }
 
     function reset(newTime) {
       stop();
-      timeLeft = newTime !== undefined ? newTime : initialTime;
+      remainingMs = (newTime !== undefined ? newTime : initialTime) * 1000;
     }
 
     return { start, stop, addTime, getTime, reset };

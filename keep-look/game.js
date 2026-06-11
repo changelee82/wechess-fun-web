@@ -1,5 +1,6 @@
 /* ===================== 翻翻乐游戏逻辑 ===================== */
 
+(() => {
 'use strict';
 
 const { $, $$, FILES, RANKS, BOARD_SIZE, key, parseKey, fi, ri, playSound, pieceSvgUrl, createPieceElement, createTimer, formatTimer, updateTimerDisplay } = GameShell;
@@ -15,14 +16,15 @@ let squares = new Array(64).fill(0); // 棋盘状态：0=空，非0=有棋子（
 let selectedSquare = -1;       // 当前选中的格子（-1=未选中）
 let isEnabled = true;          // 棋盘是否可交互
 let isRunning = false;         // 游戏是否运行中
-let timeLeft = INITIAL_TIME;   // 剩余时间（秒）
 let timer = null;              // 公共计时器实例
-let areSquareEventsBound = false; // 防重复事件绑定
 
 /* ---------- DOM ---------- */
 const boardEl = $('#board');
 const scoreEl = $('#score');
 const timerEl = $('#timer');
+
+/* ---------- 事件管理 ---------- */
+let squareEventController = null;
 
 /* ---------- 工具函数 ---------- */
 function randomInt(max) {
@@ -108,8 +110,17 @@ function checkLevelFinish() {
     if (squares[i] === 0) emptySlots.push(i);
   }
 
-  // 生成 count 对棋子（每对2个）
-  for (let i = 0; i < count && emptySlots.length >= 2; i++) {
+  // 生成 count 对棋子（每对2个），但不超过空位数量的一半
+  const maxPairs = Math.floor(emptySlots.length / 2);
+  const pairCount = Math.min(count, maxPairs);
+
+  if (pairCount === 0) {
+    // 没有空位放置新棋子，游戏结束
+    gameOver();
+    return;
+  }
+
+  for (let i = 0; i < pairCount; i++) {
     // 从空位列表中随机选一个
     const idx1 = Math.floor(Math.random() * emptySlots.length);
     const m = emptySlots[idx1];
@@ -131,6 +142,79 @@ function checkLevelFinish() {
   return true;
 }
 
+/* ---------- 增量更新：翻开棋子 ---------- */
+function flipPieceUp(idx) {
+  const sq = $(`.square[data-index="${idx}"]`, boardEl);
+  if (!sq) return;
+  const pieceEl = sq.querySelector('.piece');
+  if (!pieceEl) return;
+  const img = pieceEl.querySelector('img');
+  if (!img) return;
+
+  const skinIndex = Math.floor(squares[idx] / 13);
+  const pieceType = squares[idx] % 13;
+  img.src = skinPieceUrl(skinIndex, pieceType);
+  pieceEl.classList.remove('face-down');
+  pieceEl.classList.add('face-up');
+}
+
+/* ---------- 增量更新：翻回棋子背面 ---------- */
+function flipPieceDown(idx) {
+  const sq = $(`.square[data-index="${idx}"]`, boardEl);
+  if (!sq) return;
+  const pieceEl = sq.querySelector('.piece');
+  if (!pieceEl) return;
+  const img = pieceEl.querySelector('img');
+  if (!img) return;
+
+  if (count <= 32) {
+    const pieceType = squares[idx] % 13;
+    img.src = blindPieceUrl(pieceType);
+  } else if (count <= 64) {
+    img.src = skinPieceUrl(0, (count % 2 === 1) ? 'P' : 'p');
+  } else {
+    img.src = skinPieceUrl(0, (randomInt(2) === 1) ? 'P' : 'p');
+  }
+  pieceEl.classList.remove('face-up', 'shake');
+  pieceEl.classList.add('face-down');
+}
+
+/* ---------- 增量更新：移除已配对的棋子 ---------- */
+function removePiece(idx) {
+  const sq = $(`.square[data-index="${idx}"]`, boardEl);
+  if (!sq) return;
+  const pieceEl = sq.querySelector('.piece');
+  if (pieceEl) pieceEl.remove();
+}
+
+/* ---------- 增量更新：添加新棋子 ---------- */
+function addPiece(idx) {
+  const sq = $(`.square[data-index="${idx}"]`, boardEl);
+  if (!sq) return;
+  // 清除旧棋子
+  const oldPiece = sq.querySelector('.piece');
+  if (oldPiece) oldPiece.remove();
+
+  const pieceEl = document.createElement('div');
+  pieceEl.className = 'piece';
+
+  const img = document.createElement('img');
+  img.draggable = false;
+
+  if (count <= 32) {
+    const pieceType = squares[idx] % 13;
+    img.src = blindPieceUrl(pieceType);
+  } else if (count <= 64) {
+    img.src = skinPieceUrl(0, (count % 2 === 1) ? 'P' : 'p');
+  } else {
+    img.src = skinPieceUrl(0, (randomInt(2) === 1) ? 'P' : 'p');
+  }
+  pieceEl.classList.add('face-down');
+
+  pieceEl.appendChild(img);
+  sq.appendChild(pieceEl);
+}
+
 /* ---------- 点击处理 ---------- */
 function handleTap(e) {
   if (!isEnabled || !isRunning) return;
@@ -148,12 +232,13 @@ function handleTap(e) {
   let delay = 0;
 
   if (selectedSquare === -1) {
-    // 第一次点击：选中
+    // 第一次点击：选中，增量翻开棋子
     selectedSquare = idx;
     playSound('check');
-    renderBoard();
+    flipPieceUp(idx);
   } else if (squares[selectedSquare] !== squares[idx]) {
     // 两棋子不同：配对失败
+    const prevSelected = selectedSquare;
     selectedSquare = -1;
     delay = 1000;
     playSound('illegal');
@@ -170,12 +255,13 @@ function handleTap(e) {
     isEnabled = false;
     setTimeout(() => {
       isEnabled = true;
-      renderBoard();
+      // 增量翻回两个棋子
+      flipPieceDown(prevSelected);
+      flipPieceDown(idx);
     }, delay);
   } else {
     // 两棋子相同：配对成功
-    squares[selectedSquare] = 0;
-    squares[idx] = 0;
+    const prevSelected = selectedSquare;
     selectedSquare = -1;
     score += 1;
     addTime();
@@ -184,22 +270,31 @@ function handleTap(e) {
 
     GameShell.updateScore(score);
 
+    // 先翻开当前棋子，再清除数据
+    flipPieceUp(idx);
+    squares[prevSelected] = 0;
+    squares[idx] = 0;
+
     isEnabled = false;
     setTimeout(() => {
       isEnabled = true;
+      // 增量移除配对的棋子
+      removePiece(prevSelected);
+      removePiece(idx);
       if (checkLevelFinish()) {
-        // 新一轮
+        // 新一轮：增量添加新棋子
+        for (let i = 0; i < 64; i++) {
+          if (squares[i] !== 0) addPiece(i);
+        }
       }
-      renderBoard();
     }, delay);
   }
 }
 
 /* ---------- 计时 ---------- */
 function addTime() {
-  timeLeft += TIME_ADD;
   if (timer) timer.addTime(TIME_ADD);
-  updateTimerDisplay(timerEl, timeLeft);
+  updateTimerDisplay(timerEl, timer ? timer.getTime() : INITIAL_TIME);
 }
 
 function startClock() {
@@ -207,8 +302,7 @@ function startClock() {
   timer = createTimer({
     initialTime: INITIAL_TIME,
     onTick(t) {
-      timeLeft = t;
-      updateTimerDisplay(timerEl, timeLeft);
+      updateTimerDisplay(timerEl, t);
     },
     onTimeout() {
       gameOver();
@@ -216,7 +310,7 @@ function startClock() {
   });
   isRunning = true;
   if (timerEl) timerEl.classList.remove('timer-red', 'timer-gray');
-  updateTimerDisplay(timerEl, timeLeft);
+  updateTimerDisplay(timerEl, INITIAL_TIME);
   timer.start();
 }
 
@@ -259,11 +353,11 @@ function initGame() {
   startClock();
 }
 
-/* ---------- 事件绑定 ---------- */
+/* ---------- 事件绑定（使用 AbortController，重启时清理重建） ---------- */
 function attachBoardEvents() {
-  if (areSquareEventsBound) return;
-  areSquareEventsBound = true;
-  boardEl.addEventListener('click', handleTap);
+  if (squareEventController) squareEventController.abort();
+  squareEventController = new AbortController();
+  boardEl.addEventListener('click', handleTap, { signal: squareEventController.signal });
 }
 
 /* ---------- 启动 ---------- */
@@ -274,3 +368,5 @@ GameShell.init({
   onInit: initGame,
   onRestart: initGame,
 });
+
+})();
